@@ -2,10 +2,11 @@
 # Script Input Parameters Enforcement
 #===============================================
 Param(
-    [parameter(Mandatory=$false)] [string] $Config = "Default",
-    [parameter(Mandatory=$true)]  [string] $DestIp,
-    [parameter(Mandatory=$true)]  [string] $SrcIp,
-    [parameter(Mandatory=$true)]  [ValidateScript({Test-Path $_ -PathType Container})] [String] $OutDir = "" 
+    [parameter(Mandatory=$false)] [ValidateSet("Default", "Azure", "Detail", "Max", "Container")]   [string] $Config = "Default",
+    [parameter(Mandatory=$true)]  [ValidateScript({$_ -match [IPAddress]$_ })]         [string] $DestIp,
+    [parameter(Mandatory=$true)]  [ValidateScript({$_ -match [IPAddress]$_ })]         [string] $SrcIp,
+    [parameter(Mandatory=$true)]  [ValidateScript({Test-Path $_ -PathType Container})] [String] $OutDir,
+    [parameter(Mandatory=$false)] [switch] $SamePort = $false
 )
 $scriptName = $MyInvocation.MyCommand.Name 
 
@@ -28,7 +29,7 @@ function input_display {
 function banner {
     [CmdletBinding()]
     Param(
-        [parameter(Mandatory=$true)] [String] $Msg
+        [parameter(Mandatory=$true)] [ValidateScript({-Not [String]::IsNullOrWhiteSpace($_)})] [String] $Msg
     )
     Write-Output "`n==========================================================================="
     Write-Output "| $Msg"
@@ -78,25 +79,67 @@ function test_l4ping_generate {
 
     for ($i=0; $i -lt $g_Config.Iterations; $i++) {
         # vary port number
-        [int] $port = $g_Config.StartPort + ($i * $g_Config.Iterations)
+        [int] $port = $g_Config.StartPort
+        if (-Not $g_SamePort) {
+            $port += ($i * $g_Config.Iterations)
+        }
 
         # Output receive command
         test_recv -Port $port -ClientReceiveSize $g_Config.ClientReceiveSize -ClientSendSize $g_Config.ClientSendSize
 
         # Output send command
-        test_send -Port $port -ClientReceiveSize $g_Config.ClientReceiveSize -ClientSendSize $g_Config.ClientSendSize -PingIterations $g_Config.PingIterations -Percentiles $g_Config.Percentiles -OutDir $dir -Fname "l4ping$Config.iter$i.csv"
+        test_send -Port $port -ClientReceiveSize $g_Config.ClientReceiveSize -ClientSendSize $g_Config.ClientSendSize -PingIterations $g_Config.PingIterations -Percentiles $g_Config.Percentiles -OutDir $dir -Fname "tcp.i$($g_Config.PingIterations).iter$i.csv"
     }
 } # test_l4ping_generate()
 
 function validate_config {
     $isValid = $true
-    $int_vars = @('Iterations', 'Port', 'ClientSendSize', 'ClientReceiveSize')
+    $int_vars = @('Iterations', 'StartPort', 'ClientSendSize', 'ClientReceiveSize', 'PingIterations')
     foreach ($var in $int_vars) {
-        if (($null -eq $g_Config.($var)) -or ($g_Config.($var) -lt 0)) {
-            Write-Output "$var is required and must be greater than or equal to 0"
+        if (($null -eq $g_Config.($var)) -or ($g_Config.($var) -le 0)) {
+            Write-Host "$var is required and must be greater than 0"
             $isValid = $false
         }
     }
+
+    foreach ($var in @('StartPort', 'ClientSendSize', 'ClientReceiveSize')) {
+        if (($null -eq $g_Config.($var)) -or ($g_Config.($var) -gt 65535)) {
+            Write-Host "$var is required and must be less than or equal to 65535"
+            $isValid = $false
+        }
+    }
+
+    if ([String]::IsNullOrWhitespace($g_Config.Percentiles))
+    {
+        Write-Host "Percentiles is required and must have a value"
+        $isValid = $false
+    }
+    else
+    {
+        foreach ($val in $g_Config.Percentiles.Split(','))
+        {
+            $val = $val.Trim()
+            [double] $DoubleVal = -1.0
+            if (-NOT [Double]::TryParse($val, [ref]$DoubleVal))
+            {
+                Write-Host "Percentile values must be of type double: $val"
+                $isValid = $false
+            }
+
+            if ($DoubleVal -lt 0.0)
+            {
+                Write-Host "Percentile values must be great than or equal to 0.0: $val"
+                $isValid = $false
+            }
+
+            if ($DoubleVal -gt 1.0)
+            {
+                Write-Host "Percentile values must be less than or equal to 1.0: $val"
+                $isValid = $false
+            }
+        }
+    }
+
     return $isValid
 } # validate_config()
 
@@ -108,7 +151,8 @@ function test_main {
         [parameter(Mandatory=$false)] [string] $Config = "Default",
         [parameter(Mandatory=$true)]  [string] $DestIp,
         [parameter(Mandatory=$true)]  [string] $SrcIp,
-        [parameter(Mandatory=$true)]  [ValidateScript({Test-Path $_ -PathType Container})] [String] $OutDir = "" 
+        [parameter(Mandatory=$true)]  [ValidateScript({Test-Path $_ -PathType Container})] [String] $OutDir = "",
+        [parameter(Mandatory=$false)] [switch] $SamePort = $false
     )
     try {
         # input_display
@@ -129,6 +173,7 @@ function test_main {
         [string] $g_log        = "$dir\l4ping.Commands.txt"
         [string] $g_logSend    = "$dir\l4ping.Commands.Send.txt"
         [string] $g_logRecv    = "$dir\l4ping.Commands.Recv.txt"
+        [boolean] $g_SamePort  = $SamePort.IsPresent
 
         New-Item -ItemType directory -Path $dir | Out-Null
         
