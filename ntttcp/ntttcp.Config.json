@@ -80,7 +80,7 @@
     },
 
     "NtttcpContainer": {
-        "Iterations" : 5,
+        "Iterations" : 3,
         "StartPort"  : 50000,
         "tcp" : {
             "BufferLen"     : [65536],
@@ -93,6 +93,34 @@
             "Connections"   : [64, 128],
             "OutstandingIo" : null,
             "Options"       : "-ns"
+        },
+        "Warmup"   : 2,
+        "Cooldown" : 2,
+        "Runtime"  : 90
+    },
+    "NtttcpTcp": {
+        "Iterations" : 5,
+        "StartPort"  : 50000,
+        "tcp" : {
+            "BufferLen"     : [65536],
+            "Connections"   : [64],
+            "OutstandingIo" :[16],
+            "Options": "-sp"
+        },
+        "udp" : null,
+        "Warmup"   : 2,
+        "Cooldown" : 2,
+        "Runtime"  : 90
+    },
+    "NtttcpUdp": {
+        "Iterations" : 5,
+        "StartPort"  : 50000,
+        "tcp" : null,
+        "udp" : {
+            "BufferLen"     : [1372],
+            "Connections"   : [64],
+            "OutstandingIo" : null,
+            "Options"       : "-sp"
         },
         "Warmup"   : 2,
         "Cooldown" : 2,
