@@ -743,7 +743,7 @@ param(
 
     [bool] $gracefulCleanup = $False
 
-    $toolpath = ".\{0}" -f $Toolname
+    $toolpath = "$PSScriptRoot\$Toolname"
     $toolexe = "{0}.exe" -f $Toolname
 
     $recvCredSplat = @{}
@@ -1130,7 +1130,7 @@ param(
 
     [bool] $gracefulCleanup = $False
 
-    $toolpath = ".\{0}" -f $Toolname
+    $toolpath = "$PSScriptRoot\$Toolname"
     $toolexe = "{0}.exe" -f $Toolname
 
     try {

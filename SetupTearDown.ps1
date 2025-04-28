@@ -71,13 +71,17 @@ param(
     Write-Host "`nConfigure SSH-Agent with Private Key"
     Get-Service ssh-agent | Set-Service -StartupType Automatic
     Start-Service ssh-agent
-    ssh-add $PrivateKeyPath
+    $SshAddOutput = ssh-add $PrivateKeyPath 2>&1
+    Write-Host $SshAddOutput
 
     if (-NOT (Test-Path "$env:ProgramFiles\PowerShell\7\"))
     {
         Write-Host "`nInstall PowerShell"
-        Invoke-WebRequest https://github.com/PowerShell/PowerShell/releases/download/v7.4.0/PowerShell-7.4.0-win-x64.msi -OutFile "$env:Temp\PowerShell-7.4.0-win-x64.msi"
-        msiexec.exe /package "$env:Temp\PowerShell-7.4.0-win-x64.msi" /quiet ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=1 ADD_FILE_CONTEXT_MENU_RUNPOWERSHELL=1 ENABLE_PSREMOTING=1 REGISTER_MANIFEST=1 USE_MU=1 ENABLE_MU=1 ADD_PATH=1
+
+        #Invoke-WebRequest https://github.com/PowerShell/PowerShell/releases/download/v7.4.1/PowerShell-7.4.1-win-x64.msi -OutFile "$env:Temp\PowerShell-7.4.1-win-x64.msi"
+
+        $MsiArgs = @('/package', "$PSScriptRoot\PowerShell7\PowerShell-7.4.1-win-x64.msi", '/quiet', 'ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=1', 'ADD_FILE_CONTEXT_MENU_RUNPOWERSHELL=1', 'ENABLE_PSREMOTING=1', 'REGISTER_MANIFEST=1', 'USE_MU=1', 'ENABLE_MU=1', 'ADD_PATH=1')
+        Start-Process 'msiexec.exe' -ArgumentList $MsiArgs -Wait -NoNewWindow
     }
     else
     {
@@ -99,7 +103,12 @@ param(
     if ((Get-WindowsCapability -Online | Where-Object Name -like 'OpenSSH.Server*').State -NE 'Installed')
     {
         Write-Host "`nInstall OpenSSH Server"
-        Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
+        #Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
+
+        Expand-Archive $PSScriptRoot\OpenSSH\OpenSSH-Win64-v9.5.0.0.zip -DestinationPath $PSScriptRoot\OpenSSH\
+        Copy-Item $PSScriptRoot\OpenSSH\OpenSSH-Win64\* 'C:\Program Files\OpenSSH\'
+        powershell.exe -ExecutionPolicy Bypass -File .\install-sshd.ps1
+        Start-service sshd
     }
     else
     {
@@ -132,8 +141,10 @@ param(
     if (-NOT (Test-Path "$env:ProgramFiles\PowerShell\7\"))
     {
         Write-Host "`nInstall PowerShell"
-        Invoke-WebRequest https://github.com/PowerShell/PowerShell/releases/download/v7.4.0/PowerShell-7.4.0-win-x64.msi -OutFile "$env:Temp\PowerShell-7.4.0-win-x64.msi"
-        msiexec.exe /package "$env:Temp\PowerShell-7.4.0-win-x64.msi" /quiet ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=1 ADD_FILE_CONTEXT_MENU_RUNPOWERSHELL=1 ENABLE_PSREMOTING=1 REGISTER_MANIFEST=1 USE_MU=1 ENABLE_MU=1 ADD_PATH=1
+        #Invoke-WebRequest https://github.com/PowerShell/PowerShell/releases/download/v7.4.1/PowerShell-7.4.1-win-x64.msi -OutFile "$env:Temp\PowerShell-7.4.1-win-x64.msi"
+
+        $MsiArgs = @('/package', "$PSScriptRoot\PowerShell7\PowerShell-7.4.1-win-x64.msi", '/quiet', 'ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=1', 'ADD_FILE_CONTEXT_MENU_RUNPOWERSHELL=1', 'ENABLE_PSREMOTING=1', 'REGISTER_MANIFEST=1', 'USE_MU=1', 'ENABLE_MU=1', 'ADD_PATH=1')
+        Start-Process 'msiexec.exe' -ArgumentList $MsiArgs -Wait -NoNewWindow
     }
     else
     {
